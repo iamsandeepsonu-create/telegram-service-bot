@@ -1,35 +1,37 @@
-from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton, WebAppInfo
+from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
 from database.db import get_price_display, THEMES
-from config import WEBAPP_URL
 
 def services_menu_keyboard(services: list[dict], currency: str = "INR", theme: dict | None = None) -> InlineKeyboardMarkup:
-    bullet = theme.get("bullet", "🔹") if theme else "🔹"
+    """
+    Creates full-width vertical stacked buttons matching the user's screenshot.
+    """
+    bullet = theme.get("icon", "🔵") if theme else "🔵"
     buttons = []
-    
-    # Prominent Mini App button at the top
-    buttons.append([
-        InlineKeyboardButton(
-            text="📱 Open Full-Screen Store (Mini App) 🚀",
-            web_app=WebAppInfo(url=WEBAPP_URL)
-        )
-    ])
 
-    for s in services:
-        price_str = get_price_display(s['price'], currency)
+    for index, s in enumerate(services):
+        # 1 service per row (full-width stacked button like in screenshot)
+        service_name = s['name'].upper()
+        # Highlight special item with green emoji if desired
+        item_bullet = "🟢" if index == 4 else bullet
+        
+        button_text = f"{item_bullet} {service_name}"
+        
         buttons.append([
             InlineKeyboardButton(
-                text=f"{bullet} {s['name']} — {price_str}",
+                text=button_text,
                 callback_data=f"service_{s['id']}"
             )
         ])
-    
-    currency_label = "🇮🇳 Currency: INR (₹) - Tap to switch" if currency == "INR" else "🌍 Currency: USD ($) - Tap to switch"
+
+    # Bottom helper row: Currency Switcher
+    currency_label = "🇮🇳 INR (₹)" if currency == "INR" else "🌍 USD ($)"
     buttons.append([
         InlineKeyboardButton(
-            text=f"💱 {currency_label}",
+            text=f"💱 Currency: {currency_label} (Tap to Switch)",
             callback_data="open_currency_menu"
         )
     ])
+
     return InlineKeyboardMarkup(inline_keyboard=buttons)
 
 def service_detail_keyboard(service_id: int) -> InlineKeyboardMarkup:
@@ -37,19 +39,13 @@ def service_detail_keyboard(service_id: int) -> InlineKeyboardMarkup:
         inline_keyboard=[
             [
                 InlineKeyboardButton(
-                    text="🛒 Order This Service",
+                    text="🛒 ORDER THIS SERVICE",
                     callback_data=f"order_service_{service_id}"
                 )
             ],
             [
                 InlineKeyboardButton(
-                    text="📱 Open Mini App Store",
-                    web_app=WebAppInfo(url=WEBAPP_URL)
-                )
-            ],
-            [
-                InlineKeyboardButton(
-                    text="🔙 Back to Catalog",
+                    text="🔙 BACK TO CATALOG",
                     callback_data="back_to_services"
                 )
             ]
@@ -122,9 +118,6 @@ def admin_panel_keyboard() -> InlineKeyboardMarkup:
                 InlineKeyboardButton(text="🎨 Change Theme Color", callback_data="admin_theme_menu")
             ],
             [
-                InlineKeyboardButton(text="📱 Preview Mini App", web_app=WebAppInfo(url=WEBAPP_URL))
-            ],
-            [
                 InlineKeyboardButton(text="📢 Broadcast Announcement", callback_data="admin_broadcast")
             ]
         ]
@@ -162,7 +155,7 @@ def admin_manage_services_keyboard(services: list[dict]) -> InlineKeyboardMarkup
         status_emoji = "🟢" if s.get("is_active", 1) else "🔴"
         buttons.append([
             InlineKeyboardButton(
-                text=f"{status_emoji} {s['name']} (₹{s['price']:,.0f})",
+                text=f"{status_emoji} {s['name'].upper()} (₹{s['price']:,.0f})",
                 callback_data=f"admin_del_service_{s['id']}"
             )
         ])
