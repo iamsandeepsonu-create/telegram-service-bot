@@ -8,78 +8,70 @@
   <script src="https://telegram.org/js/telegram-web-app.js"></script>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;600;700;800&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@500;700;800&family=Outfit:wght@600;700;800&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="/webapp/style.css" />
 </head>
 <body>
-  <div class="app-container">
-    <!-- Header -->
-    <header class="app-header">
-      <div class="header-content">
-        <div class="store-badge">
-          <span class="store-icon">⚡</span>
-          <div class="store-info">
-            <h1 id="storeTitle">SERVICES STORE</h1>
-            <p id="storeSubtitle">Tap any service to order</p>
-          </div>
-        </div>
-        <button id="currencyToggleBtn" class="currency-btn" title="Toggle Currency">
-          <span id="currencyFlag">🇮🇳</span> <span id="currencyText">INR (₹)</span>
-        </button>
-      </div>
-      
-      <!-- Search Input -->
-      <div class="search-bar">
+  <div class="store-wrapper">
+    
+    <!-- Top Bar with Currency Switcher & Search -->
+    <div class="store-top-bar">
+      <div class="search-box">
         <span class="search-icon">🔍</span>
-        <input type="text" id="searchInput" placeholder="Search services..." />
+        <input type="text" id="searchInput" placeholder="Search services..." autocomplete="off" />
       </div>
-    </header>
+      <button id="currencyToggleBtn" class="currency-toggle" title="Switch Currency">
+        <span id="currencyFlag">🇮🇳</span> <span id="currencyLabel">INR (₹)</span>
+      </button>
+    </div>
 
-    <!-- Services Button List (Matches user screenshot) -->
-    <main class="services-list-container">
+    <p class="store-subtitle">Tap any service to see options & order</p>
+
+    <!-- Services Button List (Matches the reference image exactly) -->
+    <main class="services-container">
       <div id="servicesList" class="services-list">
-        <div class="loading-state">
+        <div class="loading-box">
           <div class="spinner"></div>
-          <p>Loading available services...</p>
+          <p>Loading services...</p>
         </div>
       </div>
     </main>
 
-    <!-- Service Detail & Order Modal -->
-    <div id="serviceModal" class="modal-overlay hidden">
-      <div class="modal-content">
-        <button id="modalCloseBtn" class="modal-close">&times;</button>
+    <!-- Service Details & Order Modal -->
+    <div id="serviceModal" class="modal-backdrop hidden">
+      <div class="modal-card">
+        <button id="modalCloseBtn" class="modal-close-btn" aria-label="Close">&times;</button>
         
         <div class="modal-header">
-          <span id="modalIcon" class="modal-icon">🚀</span>
-          <h2 id="modalTitle">Service Name</h2>
-          <div class="price-duration-badge">
-            <span id="modalPrice" class="modal-price">₹2,999</span>
-            <span id="modalDuration" class="modal-duration">⏱️ 2-3 Days</span>
+          <h2 id="modalTitle">SERVICE TITLE</h2>
+          <div class="modal-badges">
+            <span id="modalPrice" class="badge-price">₹2,999</span>
+            <span id="modalDuration" class="badge-duration">⏱️ 2-3 Days</span>
           </div>
         </div>
 
-        <div class="modal-body">
-          <div class="info-section">
-            <h3>Description</h3>
-            <p id="modalDesc">Full description goes here...</p>
+        <div class="modal-content-body">
+          <div class="description-box">
+            <h4>Description</h4>
+            <p id="modalDesc">Service details description...</p>
           </div>
 
-          <div class="input-section">
-            <label for="orderRequirements">Project Requirements / Brief:</label>
-            <textarea id="orderRequirements" rows="3" placeholder="Describe your project, custom needs, links, or instructions..."></textarea>
+          <div class="requirements-box">
+            <label for="orderRequirements">Your Project Instructions / Requirements:</label>
+            <textarea id="orderRequirements" rows="3" placeholder="Enter your instructions, details, links, or preferences..."></textarea>
           </div>
 
-          <div id="orderStatusMsg" class="status-msg hidden"></div>
+          <div id="modalStatusMsg" class="modal-status hidden"></div>
         </div>
 
         <div class="modal-footer">
-          <button id="submitOrderBtn" class="order-btn">
-            ⚡ Submit Order Now
+          <button id="modalOrderSubmitBtn" class="action-submit-btn">
+            ⚡ PROCEED TO ORDER
           </button>
         </div>
       </div>
     </div>
+
   </div>
 
   <script src="/webapp/app.js"></script>

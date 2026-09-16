@@ -1,29 +1,27 @@
-from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
+from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton, WebAppInfo
 from database.db import get_price_display, THEMES
+from config import WEBAPP_URL
 
 def services_menu_keyboard(services: list[dict], currency: str = "INR", theme: dict | None = None) -> InlineKeyboardMarkup:
-    """
-    Creates full-width vertical stacked buttons matching the user's screenshot.
-    """
-    bullet = theme.get("icon", "🔵") if theme else "🔵"
     buttons = []
+    
+    # Open full UI Store
+    buttons.append([
+        InlineKeyboardButton(
+            text="🛍️ OPEN SERVICES MENU 🚀",
+            web_app=WebAppInfo(url=WEBAPP_URL)
+        )
+    ])
 
-    for index, s in enumerate(services):
-        # 1 service per row (full-width stacked button like in screenshot)
+    for s in services:
         service_name = s['name'].upper()
-        # Highlight special item with green emoji if desired
-        item_bullet = "🟢" if index == 4 else bullet
-        
-        button_text = f"{item_bullet} {service_name}"
-        
         buttons.append([
             InlineKeyboardButton(
-                text=button_text,
+                text=f"🔵 {service_name}",
                 callback_data=f"service_{s['id']}"
             )
         ])
 
-    # Bottom helper row: Currency Switcher
     currency_label = "🇮🇳 INR (₹)" if currency == "INR" else "🌍 USD ($)"
     buttons.append([
         InlineKeyboardButton(
@@ -41,6 +39,12 @@ def service_detail_keyboard(service_id: int) -> InlineKeyboardMarkup:
                 InlineKeyboardButton(
                     text="🛒 ORDER THIS SERVICE",
                     callback_data=f"order_service_{service_id}"
+                )
+            ],
+            [
+                InlineKeyboardButton(
+                    text="📱 OPEN IN MENU UI",
+                    web_app=WebAppInfo(url=WEBAPP_URL)
                 )
             ],
             [
@@ -115,26 +119,13 @@ def admin_panel_keyboard() -> InlineKeyboardMarkup:
                 InlineKeyboardButton(text="🗑️ Manage / Delete Services", callback_data="admin_manage_services")
             ],
             [
-                InlineKeyboardButton(text="🎨 Change Theme Color", callback_data="admin_theme_menu")
+                InlineKeyboardButton(text="📱 Preview Services Menu", web_app=WebAppInfo(url=WEBAPP_URL))
             ],
             [
                 InlineKeyboardButton(text="📢 Broadcast Announcement", callback_data="admin_broadcast")
             ]
         ]
     )
-
-def admin_theme_selector_keyboard(current_theme_key: str = "BLUE") -> InlineKeyboardMarkup:
-    buttons = []
-    for key, val in THEMES.items():
-        prefix = "✅ " if key == current_theme_key else ""
-        buttons.append([
-            InlineKeyboardButton(
-                text=f"{prefix}{val['icon']} {val['name']}",
-                callback_data=f"admin_set_theme_{key}"
-            )
-        ])
-    buttons.append([InlineKeyboardButton(text="🔙 Back to Admin Menu", callback_data="admin_back_to_menu")])
-    return InlineKeyboardMarkup(inline_keyboard=buttons)
 
 def admin_order_actions_keyboard(order_id: int) -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup(

@@ -1,9 +1,10 @@
-from aiogram.types import ReplyKeyboardMarkup, KeyboardButton
+from aiogram.types import ReplyKeyboardMarkup, KeyboardButton, WebAppInfo
+from config import WEBAPP_URL
 
 def main_menu_keyboard(is_admin: bool = False) -> ReplyKeyboardMarkup:
     keyboard = [
         [
-            KeyboardButton(text="🛍️ Services Catalog"),
+            KeyboardButton(text="🛍️ Services Catalog", web_app=WebAppInfo(url=WEBAPP_URL)),
             KeyboardButton(text="📦 My Orders")
         ],
         [
