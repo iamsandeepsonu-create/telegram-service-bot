@@ -1,6 +1,25 @@
 import aiosqlite
 from datetime import datetime
-from config import DB_PATH
+from config import DB_PATH, USD_TO_INR_RATE
+
+def format_price(amount_inr: float, currency: str = "INR") -> str:
+    """Returns a rich formatted price string based on user currency."""
+    currency = (currency or "INR").upper()
+    if currency == "USD":
+        usd_val = amount_inr / USD_TO_INR_RATE
+        return f"${usd_val:.2f} (approx ₹{amount_inr:,.0f})"
+    else:
+        usd_approx = amount_inr / USD_TO_INR_RATE
+        return f"₹{amount_inr:,.0f} (approx ${usd_approx:.2f})"
+
+def get_price_display(amount_inr: float, currency: str = "INR") -> str:
+    """Returns a clean short price for button labels."""
+    currency = (currency or "INR").upper()
+    if currency == "USD":
+        usd_val = amount_inr / USD_TO_INR_RATE
+        return f"${usd_val:.2f}"
+    else:
+        return f"₹{amount_inr:,.0f}"
 
 class Database:
     def __init__(self, db_path: str):
@@ -18,11 +37,18 @@ class Database:
                     user_id INTEGER PRIMARY KEY,
                     username TEXT,
                     full_name TEXT,
+                    currency TEXT DEFAULT 'INR',
                     joined_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
                 );
             """)
 
-            # 2. Services table
+            # Safe migration for existing users table
+            try:
+                await db.execute("ALTER TABLE users ADD COLUMN currency TEXT DEFAULT 'INR';")
+            except Exception:
+                pass  # Column already exists
+
+            # 2. Services table (price stored in INR)
             await db.execute("""
                 CREATE TABLE IF NOT EXISTS services (
                     id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -52,52 +78,69 @@ class Database:
 
             await db.commit()
 
-            # Seed default services if empty
+            # Seed default services with INR pricing if empty or if previously seeded in old USD amounts (< 200)
             async with db.execute("SELECT COUNT(*) FROM services") as cursor:
                 count = (await cursor.fetchone())[0]
-                if count == 0:
-                    default_services = [
-                        (
-                            "🚀 Telegram Bot Development",
-                            "Custom automated Telegram bot with database, payments, and admin panel.",
-                            49.99,
-                            "2-3 Days"
-                        ),
-                        (
-                            "🌐 Modern Landing Page",
-                            "Ultra-fast responsive portfolio / sales landing page with high conversion rate.",
-                            79.99,
-                            "3-4 Days"
-                        ),
-                        (
-                            "🎨 Graphic & UI/UX Design",
-                            "Professional banner, logo, or mobile UI/UX design kit.",
-                            29.99,
-                            "24-48 Hours"
-                        ),
-                        (
-                            "📈 Social Media Marketing",
-                            "1-Month growth strategy, targeted content calendar, and analytics audit.",
-                            99.99,
-                            "7 Days"
-                        )
-                    ]
-                    await db.executemany(
-                        "INSERT INTO services (name, description, price, duration) VALUES (?, ?, ?, ?)",
-                        default_services
-                    )
-                    await db.commit()
+
+            default_services = [
+                (
+                    "🚀 Telegram Bot Development",
+                    "Custom automated Telegram bot with database, payments, and admin panel.",
+                    3999.0,
+                    "2-3 Days"
+                ),
+                (
+                    "🌐 Modern Landing Page",
+                    "Ultra-fast responsive portfolio / sales landing page with high conversion rate.",
+                    5999.0,
+                    "3-4 Days"
+                ),
+                (
+                    "🎨 Graphic & UI/UX Design",
+                    "Professional banner, logo, or mobile UI/UX design kit.",
+                    1999.0,
+                    "24-48 Hours"
+                ),
+                (
+                    "📈 Social Media Marketing",
+                    "1-Month growth strategy, targeted content calendar, and analytics audit.",
+                    7999.0,
+                    "7 Days"
+                )
+            ]
+
+            if count == 0:
+                await db.executemany(
+                    "INSERT INTO services (name, description, price, duration) VALUES (?, ?, ?, ?)",
+                    default_services
+                )
+                await db.commit()
+            else:
+                # If existing services were < 200 (old USD values), convert them to proper INR
+                await db.execute("UPDATE services SET price = price * 85 WHERE price < 200")
+                await db.commit()
 
     # User Methods
-    async def add_or_update_user(self, user_id: int, username: str | None, full_name: str):
+    async def add_or_update_user(self, user_id: int, username: str | None, full_name: str, detected_currency: str = "INR"):
         async with aiosqlite.connect(self.db_path) as db:
             await db.execute("""
-                INSERT INTO users (user_id, username, full_name)
-                VALUES (?, ?, ?)
+                INSERT INTO users (user_id, username, full_name, currency)
+                VALUES (?, ?, ?, ?)
                 ON CONFLICT(user_id) DO UPDATE SET
                     username = excluded.username,
                     full_name = excluded.full_name
-            """, (user_id, username, full_name))
+            """, (user_id, username, full_name, detected_currency))
+            await db.commit()
+
+    async def get_user_currency(self, user_id: int) -> str:
+        async with aiosqlite.connect(self.db_path) as db:
+            async with db.execute("SELECT currency FROM users WHERE user_id = ?", (user_id,)) as cursor:
+                row = await cursor.fetchone()
+                return row[0] if row and row[0] else "INR"
+
+    async def set_user_currency(self, user_id: int, currency: str):
+        async with aiosqlite.connect(self.db_path) as db:
+            await db.execute("UPDATE users SET currency = ? WHERE user_id = ?", (currency.upper(), user_id))
             await db.commit()
 
     async def get_total_users_count(self) -> int:
@@ -133,12 +176,12 @@ class Database:
                 row = await cursor.fetchone()
                 return dict(row) if row else None
 
-    async def add_service(self, name: str, description: str, price: float, duration: str) -> int:
+    async def add_service(self, name: str, description: str, price_inr: float, duration: str) -> int:
         async with aiosqlite.connect(self.db_path) as db:
             cursor = await db.execute("""
                 INSERT INTO services (name, description, price, duration)
                 VALUES (?, ?, ?, ?)
-            """, (name, description, price, duration))
+            """, (name, description, price_inr, duration))
             await db.commit()
             return cursor.lastrowid
 
@@ -161,7 +204,7 @@ class Database:
         async with aiosqlite.connect(self.db_path) as db:
             db.row_factory = aiosqlite.Row
             query = """
-                SELECT o.*, s.name AS service_name, s.price, s.duration, u.username, u.full_name
+                SELECT o.*, s.name AS service_name, s.price, s.duration, u.username, u.full_name, u.currency
                 FROM orders o
                 JOIN services s ON o.service_id = s.id
                 JOIN users u ON o.user_id = u.user_id
@@ -189,7 +232,7 @@ class Database:
         async with aiosqlite.connect(self.db_path) as db:
             db.row_factory = aiosqlite.Row
             query = """
-                SELECT o.*, s.name AS service_name, s.price, u.username, u.full_name
+                SELECT o.*, s.name AS service_name, s.price, u.username, u.full_name, u.currency
                 FROM orders o
                 JOIN services s ON o.service_id = s.id
                 JOIN users u ON o.user_id = u.user_id
@@ -219,13 +262,16 @@ class Database:
                 JOIN services s ON o.service_id = s.id
                 WHERE o.status = 'Completed'
             """) as c4:
-                total_revenue = (await c4.fetchone())[0]
+                total_revenue_inr = (await c4.fetchone())[0]
+
+            total_revenue_usd = total_revenue_inr / USD_TO_INR_RATE
 
             return {
                 "total_users": total_users,
                 "total_orders": total_orders,
                 "completed_orders": completed_orders,
-                "total_revenue": total_revenue
+                "total_revenue_inr": total_revenue_inr,
+                "total_revenue_usd": total_revenue_usd
             }
 
 # Global DB instance

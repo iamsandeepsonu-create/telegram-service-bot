@@ -14,6 +14,10 @@ ADMIN_IDS = [int(x.strip()) for x in admin_ids_raw.split(",") if x.strip().isdig
 
 DB_PATH = os.getenv("DB_PATH", "bot_database.db")
 
+# Currency Conversion (1 USD to INR rate)
+USD_TO_INR_RATE = float(os.getenv("USD_TO_INR_RATE", "85.0"))
+
 # Ensure DB path is absolute if relative
 if not os.path.isabs(DB_PATH):
     DB_PATH = str(BASE_DIR / DB_PATH)
+

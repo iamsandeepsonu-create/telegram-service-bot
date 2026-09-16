@@ -1,8 +1,9 @@
 from aiogram import Router, F, Bot
 from aiogram.fsm.context import FSMContext
 from aiogram.types import CallbackQuery, Message
-from config import ADMIN_IDS
+from config import ADMIN_IDS, USD_TO_INR_RATE
 from database import db
+from database.db import format_price, get_price_display
 from states.order_states import OrderPlacement
 from keyboards import (
     attachment_skip_keyboard,
@@ -25,11 +26,15 @@ async def start_order_process(callback: CallbackQuery, state: FSMContext):
         await callback.answer("Service not found.", show_alert=True)
         return
 
+    user_id = callback.from_user.id
+    currency = await db.get_user_currency(user_id)
+
     await state.update_data(
         service_id=service_id,
         service_name=service['name'],
-        price=service['price'],
-        duration=service['duration']
+        price_inr=service['price'],
+        duration=service['duration'],
+        currency=currency
     )
 
     await state.set_state(OrderPlacement.waiting_for_requirements)
@@ -87,11 +92,13 @@ async def show_order_summary(message: Message, state: FSMContext, is_edit: bool 
     await state.set_state(OrderPlacement.confirm_order)
 
     has_file = "Attached ✅" if data.get("attachment_file_id") else "None"
+    currency = data.get("currency", "INR")
+    price_str = format_price(data['price_inr'], currency)
 
     summary_text = (
         "🔍 **Review Your Order Details:**\n\n"
         f"🏷️ **Service:** {data['service_name']}\n"
-        f"💵 **Total Price:** `${data['price']:.2f}`\n"
+        f"💵 **Total Price:** `{price_str}`\n"
         f"⏱️ **Estimated Delivery:** `{data['duration']}`\n"
         f"📎 **Attachments:** `{has_file}`\n\n"
         f"📋 **Requirements Brief:**\n_{data['requirements']}_\n\n"
@@ -126,10 +133,13 @@ async def confirm_order_submission(callback: CallbackQuery, state: FSMContext, b
 
     await state.clear()
 
+    currency = data.get("currency", "INR")
+    price_display = get_price_display(data['price_inr'], currency)
+
     # Success message for client
     success_text = (
         f"🎉 **Order Placed Successfully! (Order #{order_id})**\n\n"
-        f"Thank you, {user.first_name}! Your request for **{data['service_name']}** has been submitted.\n\n"
+        f"Thank you, {user.first_name}! Your request for **{data['service_name']}** ({price_display}) has been submitted.\n\n"
         "📌 **What happens next?**\n"
         "Our team will review your order and start working on it right away. "
         "You will receive live status notifications here.\n\n"
@@ -139,12 +149,18 @@ async def confirm_order_submission(callback: CallbackQuery, state: FSMContext, b
     await callback.message.edit_text(success_text, parse_mode="Markdown")
     await callback.answer()
 
+    # Calculate dual currency pricing for Admin
+    price_inr = data['price_inr']
+    price_usd = price_inr / USD_TO_INR_RATE
+
     # Notify Admins
     admin_alert_text = (
         f"🚨 **NEW ORDER RECEIVED! (Order #{order_id})**\n\n"
         f"👤 **Customer:** {user.full_name} (@{user.username or 'NoUsername'})\n"
         f"🆔 **User ID:** `{user.id}`\n"
-        f"🏷️ **Service:** {data['service_name']} (${data['price']:.2f})\n"
+        f"🌐 **Client Currency:** `{currency}`\n"
+        f"🏷️ **Service:** {data['service_name']}\n"
+        f"💰 **Amount:** `₹{price_inr:,.0f}` (or `${price_usd:.2f} USD`)\n"
         f"⏱️ **Duration:** `{data['duration']}`\n\n"
         f"📝 **Client Requirements:**\n{data['requirements']}"
     )
@@ -158,7 +174,6 @@ async def confirm_order_submission(callback: CallbackQuery, state: FSMContext, b
                     reply_markup=admin_order_actions_keyboard(order_id),
                     parse_mode="Markdown"
                 )
-                # Forward or send file
                 try:
                     await bot.send_document(
                         chat_id=admin_id,

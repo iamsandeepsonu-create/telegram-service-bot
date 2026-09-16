@@ -1,14 +1,25 @@
 from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
+from database.db import get_price_display
 
-def services_menu_keyboard(services: list[dict]) -> InlineKeyboardMarkup:
+def services_menu_keyboard(services: list[dict], currency: str = "INR") -> InlineKeyboardMarkup:
     buttons = []
     for s in services:
+        price_str = get_price_display(s['price'], currency)
         buttons.append([
             InlineKeyboardButton(
-                text=f"{s['name']} — ${s['price']:.2f}",
+                text=f"{s['name']} — {price_str}",
                 callback_data=f"service_{s['id']}"
             )
         ])
+    
+    # Currency switch button at the bottom of the catalog
+    currency_label = "🇮🇳 Currency: INR (₹) - Tap to switch" if currency == "INR" else "🌍 Currency: USD ($) - Tap to switch"
+    buttons.append([
+        InlineKeyboardButton(
+            text=f"💱 {currency_label}",
+            callback_data="open_currency_menu"
+        )
+    ])
     return InlineKeyboardMarkup(inline_keyboard=buttons)
 
 def service_detail_keyboard(service_id: int) -> InlineKeyboardMarkup:
@@ -25,6 +36,21 @@ def service_detail_keyboard(service_id: int) -> InlineKeyboardMarkup:
                     text="🔙 Back to Catalog",
                     callback_data="back_to_services"
                 )
+            ]
+        ]
+    )
+
+def currency_switch_keyboard(current_currency: str = "INR") -> InlineKeyboardMarkup:
+    inr_prefix = "✅ " if current_currency == "INR" else ""
+    usd_prefix = "✅ " if current_currency == "USD" else ""
+    return InlineKeyboardMarkup(
+        inline_keyboard=[
+            [
+                InlineKeyboardButton(text=f"{inr_prefix}🇮🇳 Indian Rupee (INR ₹)", callback_data="set_currency_INR"),
+                InlineKeyboardButton(text=f"{usd_prefix}🌍 US Dollar (USD $)", callback_data="set_currency_USD")
+            ],
+            [
+                InlineKeyboardButton(text="🔙 Back to Services", callback_data="back_to_services")
             ]
         ]
     )
@@ -101,7 +127,7 @@ def admin_manage_services_keyboard(services: list[dict]) -> InlineKeyboardMarkup
         status_emoji = "🟢" if s.get("is_active", 1) else "🔴"
         buttons.append([
             InlineKeyboardButton(
-                text=f"{status_emoji} {s['name']} (Click to Delete)",
+                text=f"{status_emoji} {s['name']} (₹{s['price']:,.0f})",
                 callback_data=f"admin_del_service_{s['id']}"
             )
         ])

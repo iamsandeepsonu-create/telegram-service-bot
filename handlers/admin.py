@@ -53,7 +53,8 @@ async def cb_admin_stats(callback: CallbackQuery):
         f"👥 **Total Registered Users:** `{stats['total_users']}`\n"
         f"📦 **Total Orders Placed:** `{stats['total_orders']}`\n"
         f"✅ **Completed Orders:** `{stats['completed_orders']}`\n"
-        f"💰 **Total Completed Revenue:** `${stats['total_revenue']:.2f}`\n"
+        f"🇮🇳 **Completed Revenue (INR):** `₹{stats['total_revenue_inr']:,.2f}`\n"
+        f"🌍 **Completed Revenue (USD):** `${stats['total_revenue_usd']:,.2f}`\n"
     )
     await callback.message.edit_text(text, reply_markup=admin_panel_keyboard(), parse_mode="Markdown")
     await callback.answer()
@@ -73,7 +74,7 @@ async def cb_admin_recent_orders(callback: CallbackQuery):
     lines = ["📋 **Latest 10 Orders:**\n"]
     for o in orders:
         lines.append(
-            f"• **#{o['id']}** | {o['service_name']} (${o['price']:.2f})\n"
+            f"• **#{o['id']}** | {o['service_name']} (₹{o['price']:,.0f})\n"
             f"  Client: {o['full_name']} (@{o['username'] or 'NoUser'})\n"
             f"  Status: `{o['status']}` | Date: `{o['created_at'][:10]}`"
         )
@@ -107,17 +108,18 @@ async def process_service_name(message: Message, state: FSMContext):
 async def process_service_desc(message: Message, state: FSMContext):
     await state.update_data(description=message.text.strip())
     await state.set_state(AdminAddService.waiting_for_price)
-    await message.answer("💵 Enter the **Price in USD** (number only, e.g. 49.99):")
+    await message.answer("🇮🇳 Enter the **Price in Indian Rupees (INR ₹)** (number only, e.g. `2999`):")
 
 @admin_router.message(AdminAddService.waiting_for_price, F.text)
 async def process_service_price(message: Message, state: FSMContext):
+    clean_text = message.text.strip().replace("₹", "").replace("$", "").replace(",", "")
     try:
-        price = float(message.text.strip().replace("$", ""))
+        price_inr = float(clean_text)
     except ValueError:
-        await message.answer("⚠️ Invalid price. Please enter a valid number (e.g. 29.99):")
+        await message.answer("⚠️ Invalid price. Please enter a valid number (e.g. 2999):")
         return
 
-    await state.update_data(price=price)
+    await state.update_data(price=price_inr)
     await state.set_state(AdminAddService.waiting_for_duration)
     await message.answer("⏱️ Enter estimated **Turnaround / Delivery Time** (e.g. `2-3 Days` or `24 Hours`):")
 
@@ -130,16 +132,17 @@ async def process_service_duration(message: Message, state: FSMContext):
     service_id = await db.add_service(
         name=data['name'],
         description=data['description'],
-        price=data['price'],
+        price_inr=data['price'],
         duration=duration
     )
 
     success_msg = (
         f"✅ **Service Added Successfully! (ID: {service_id})**\n\n"
         f"🏷️ **Name:** {data['name']}\n"
-        f"💵 **Price:** `${data['price']:.2f}`\n"
+        f"🇮🇳 **Price (INR):** `₹{data['price']:,.0f}`\n"
+        f"🌍 **Price (USD approx):** `${data['price'] / 85.0:.2f}`\n"
         f"⏱️ **Delivery:** `{duration}`\n\n"
-        "It is now live in the customer catalog!"
+        "It is now live in the catalog for both Indian & International clients!"
     )
     await message.answer(success_msg, reply_markup=admin_panel_keyboard(), parse_mode="Markdown")
 
