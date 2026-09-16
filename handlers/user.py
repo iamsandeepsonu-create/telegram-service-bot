@@ -3,7 +3,7 @@ from aiogram.filters import CommandStart, Command
 from aiogram.types import Message, CallbackQuery
 from config import ADMIN_IDS
 from database import db
-from database.db import format_price, get_price_display
+from database.db import format_price, get_price_display, get_theme
 from keyboards import (
     main_menu_keyboard,
     services_menu_keyboard,
@@ -19,13 +19,10 @@ def detect_default_currency(language_code: str | None) -> str:
         return "INR"
     
     code = language_code.lower()
-    
-    # Non-Indian international language codes
     foreign_codes = ["ru", "es", "fr", "de", "ar", "ja", "zh", "pt", "it", "tr", "pl", "uk", "vi", "id", "ko"]
     if any(code.startswith(fc) for fc in foreign_codes):
         return "USD"
     
-    # Default to INR
     return "INR"
 
 @user_router.message(CommandStart())
@@ -35,8 +32,9 @@ async def cmd_start(message: Message):
         return
 
     detected_currency = detect_default_currency(user.language_code)
+    theme_key = await db.get_theme_color()
+    theme = get_theme(theme_key)
 
-    # Record user in database with auto-detected currency
     await db.add_or_update_user(
         user_id=user.id,
         username=user.username,
@@ -50,11 +48,10 @@ async def cmd_start(message: Message):
 
     welcome_text = (
         f"👋 **Hello {user.first_name}!**\n\n"
-        "Welcome to our **Professional Services Bot**.\n"
-        "Here you can explore our premium services, place instant orders, "
-        "and track your project delivery in real time.\n\n"
-        f"💱 _{currency_note} (You can switch anytime in catalog)_\n\n"
-        "👇 *Use the menu below to get started:*"
+        f"Welcome to our **Professional Services Store** {theme['accent']}\n\n"
+        f"{theme['border']} *Premium Quality & Express Turnaround*\n"
+        f"💱 _{currency_note} (Switch anytime in catalog)_\n\n"
+        "👇 *Use the menu below to explore our services:*"
     )
 
     await message.answer(
@@ -68,6 +65,8 @@ async def cmd_start(message: Message):
 async def show_services(message: Message):
     user_id = message.from_user.id
     currency = await db.get_user_currency(user_id)
+    theme_key = await db.get_theme_color()
+    theme = get_theme(theme_key)
     services = await db.get_active_services()
 
     if not services:
@@ -75,14 +74,17 @@ async def show_services(message: Message):
         return
 
     currency_flag = "🇮🇳 INR (₹)" if currency == "INR" else "🌍 USD ($)"
-    text = (
-        f"💼 **Our Available Services & Packages:**\n"
-        f"Currency: `{currency_flag}`\n\n"
-        "_Select a service below for details & ordering:_"
+    
+    catalog_card = (
+        f"{theme['card_header']}\n\n"
+        f"{theme['accent']} **PREMIUM SERVICES & PACKAGES**\n"
+        f"🌐 **Active Currency:** `{currency_flag}`\n\n"
+        f"_{theme['bullet']} Click any service below for full details, turnaround times & instant ordering:_"
     )
+
     await message.answer(
-        text,
-        reply_markup=services_menu_keyboard(services, currency=currency),
+        catalog_card,
+        reply_markup=services_menu_keyboard(services, currency=currency, theme=theme),
         parse_mode="Markdown"
     )
 
@@ -92,8 +94,8 @@ async def cb_open_currency_menu(callback: CallbackQuery):
     current_currency = await db.get_user_currency(user_id)
     text = (
         "💱 **Choose Your Preferred Currency:**\n\n"
-        "• **🇮🇳 INR (₹)** — Indian Rupee\n"
-        "• **🌍 USD ($)** — US Dollar (International)\n\n"
+        "• **🇮🇳 INR (₹)** — Indian Rupee (UPI / GPay / Net Banking)\n"
+        "• **🌍 USD ($)** — US Dollar (Cards / Crypto / PayPal)\n\n"
         "Select an option below to update all catalog prices:"
     )
     await callback.message.edit_text(
@@ -110,18 +112,21 @@ async def cb_set_currency(callback: CallbackQuery):
     await db.set_user_currency(user_id, new_currency)
 
     services = await db.get_active_services()
+    theme_key = await db.get_theme_color()
+    theme = get_theme(theme_key)
     currency_flag = "🇮🇳 INR (₹)" if new_currency == "INR" else "🌍 USD ($)"
     
     await callback.answer(f"Currency changed to {currency_flag}!", show_alert=True)
     
-    text = (
-        f"💼 **Our Available Services & Packages:**\n"
-        f"Currency: `{currency_flag}`\n\n"
-        "_Select a service below for details & ordering:_"
+    catalog_card = (
+        f"{theme['card_header']}\n\n"
+        f"{theme['accent']} **PREMIUM SERVICES & PACKAGES**\n"
+        f"🌐 **Active Currency:** `{currency_flag}`\n\n"
+        f"_{theme['bullet']} Click any service below for full details, turnaround times & instant ordering:_"
     )
     await callback.message.edit_text(
-        text,
-        reply_markup=services_menu_keyboard(services, currency=new_currency),
+        catalog_card,
+        reply_markup=services_menu_keyboard(services, currency=new_currency, theme=theme),
         parse_mode="Markdown"
     )
 
@@ -129,6 +134,8 @@ async def cb_set_currency(callback: CallbackQuery):
 async def cb_back_to_services(callback: CallbackQuery):
     user_id = callback.from_user.id
     currency = await db.get_user_currency(user_id)
+    theme_key = await db.get_theme_color()
+    theme = get_theme(theme_key)
     services = await db.get_active_services()
 
     if not services:
@@ -137,14 +144,15 @@ async def cb_back_to_services(callback: CallbackQuery):
         return
 
     currency_flag = "🇮🇳 INR (₹)" if currency == "INR" else "🌍 USD ($)"
-    text = (
-        f"💼 **Our Available Services & Packages:**\n"
-        f"Currency: `{currency_flag}`\n\n"
-        "_Select a service below for details & ordering:_"
+    catalog_card = (
+        f"{theme['card_header']}\n\n"
+        f"{theme['accent']} **PREMIUM SERVICES & PACKAGES**\n"
+        f"🌐 **Active Currency:** `{currency_flag}`\n\n"
+        f"_{theme['bullet']} Click any service below for full details, turnaround times & instant ordering:_"
     )
     await callback.message.edit_text(
-        text,
-        reply_markup=services_menu_keyboard(services, currency=currency),
+        catalog_card,
+        reply_markup=services_menu_keyboard(services, currency=currency, theme=theme),
         parse_mode="Markdown"
     )
     await callback.answer()
@@ -164,14 +172,17 @@ async def cb_service_detail(callback: CallbackQuery):
 
     user_id = callback.from_user.id
     currency = await db.get_user_currency(user_id)
+    theme_key = await db.get_theme_color()
+    theme = get_theme(theme_key)
     formatted_price = format_price(service['price'], currency)
 
     detail_text = (
-        f"✨ **{service['name']}**\n\n"
+        f"{theme['icon']} **{service['name'].upper()}**\n"
+        f"───────────────────────────\n\n"
         f"📝 **Description:**\n{service['description']}\n\n"
         f"💵 **Price:** `{formatted_price}`\n"
-        f"⏱️ **Delivery Time:** `{service['duration']}`\n\n"
-        "Ready to start? Click **Order This Service** below!"
+        f"⏱️ **Estimated Delivery:** `{service['duration']}`\n\n"
+        f"{theme['accent']} Ready to start? Tap **Order This Service** below!"
     )
 
     await callback.message.edit_text(

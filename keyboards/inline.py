@@ -1,18 +1,18 @@
 from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
-from database.db import get_price_display
+from database.db import get_price_display, THEMES
 
-def services_menu_keyboard(services: list[dict], currency: str = "INR") -> InlineKeyboardMarkup:
+def services_menu_keyboard(services: list[dict], currency: str = "INR", theme: dict | None = None) -> InlineKeyboardMarkup:
+    bullet = theme.get("bullet", "🔹") if theme else "🔹"
     buttons = []
     for s in services:
         price_str = get_price_display(s['price'], currency)
         buttons.append([
             InlineKeyboardButton(
-                text=f"{s['name']} — {price_str}",
+                text=f"{bullet} {s['name']} — {price_str}",
                 callback_data=f"service_{s['id']}"
             )
         ])
     
-    # Currency switch button at the bottom of the catalog
     currency_label = "🇮🇳 Currency: INR (₹) - Tap to switch" if currency == "INR" else "🌍 Currency: USD ($) - Tap to switch"
     buttons.append([
         InlineKeyboardButton(
@@ -103,10 +103,26 @@ def admin_panel_keyboard() -> InlineKeyboardMarkup:
                 InlineKeyboardButton(text="🗑️ Manage / Delete Services", callback_data="admin_manage_services")
             ],
             [
+                InlineKeyboardButton(text="🎨 Change Theme Color", callback_data="admin_theme_menu")
+            ],
+            [
                 InlineKeyboardButton(text="📢 Broadcast Announcement", callback_data="admin_broadcast")
             ]
         ]
     )
+
+def admin_theme_selector_keyboard(current_theme_key: str = "BLUE") -> InlineKeyboardMarkup:
+    buttons = []
+    for key, val in THEMES.items():
+        prefix = "✅ " if key == current_theme_key else ""
+        buttons.append([
+            InlineKeyboardButton(
+                text=f"{prefix}{val['icon']} {val['name']}",
+                callback_data=f"admin_set_theme_{key}"
+            )
+        ])
+    buttons.append([InlineKeyboardButton(text="🔙 Back to Admin Menu", callback_data="admin_back_to_menu")])
+    return InlineKeyboardMarkup(inline_keyboard=buttons)
 
 def admin_order_actions_keyboard(order_id: int) -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup(

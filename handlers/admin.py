@@ -4,11 +4,13 @@ from aiogram.fsm.context import FSMContext
 from aiogram.types import Message, CallbackQuery
 from config import ADMIN_IDS
 from database import db
+from database.db import get_theme, THEMES
 from states.order_states import AdminAddService, AdminBroadcast
 from keyboards import (
     admin_panel_keyboard,
     admin_manage_services_keyboard,
 )
+from keyboards.inline import admin_theme_selector_keyboard
 
 admin_router = Router()
 
@@ -22,8 +24,12 @@ async def show_admin_dashboard(message: Message):
         await message.answer("⛔ Access denied. This menu is for administrators only.")
         return
 
+    current_theme_key = await db.get_theme_color()
+    theme = get_theme(current_theme_key)
+
     text = (
         "⚡ **Admin Management Console**\n\n"
+        f"🎨 **Active Theme:** {theme['icon']} `{theme['name']}`\n\n"
         "Select an action from the control panel below:"
     )
     await message.answer(text, reply_markup=admin_panel_keyboard(), parse_mode="Markdown")
@@ -34,12 +40,59 @@ async def cb_admin_back_to_menu(callback: CallbackQuery):
         await callback.answer("Access denied.")
         return
 
+    current_theme_key = await db.get_theme_color()
+    theme = get_theme(current_theme_key)
+
     text = (
         "⚡ **Admin Management Console**\n\n"
+        f"🎨 **Active Theme:** {theme['icon']} `{theme['name']}`\n\n"
         "Select an action from the control panel below:"
     )
     await callback.message.edit_text(text, reply_markup=admin_panel_keyboard(), parse_mode="Markdown")
     await callback.answer()
+
+# --- Theme Management ---
+@admin_router.callback_query(F.data == "admin_theme_menu")
+async def cb_admin_theme_menu(callback: CallbackQuery):
+    if not is_admin(callback.from_user.id):
+        await callback.answer("Access denied.")
+        return
+
+    current_theme = await db.get_theme_color()
+    text = (
+        "🎨 **Select Catalog Background Theme & Styling:**\n\n"
+        "Choose a color theme for the client catalog cards, headers, and badges:\n\n"
+        "• 🔵 **Royal Blue** (Default & Modern)\n"
+        "• 🟣 **Neon Purple** (Cyberpunk & Vibrant)\n"
+        "• 🟢 **Emerald Green** (Fresh & Trustworthy)\n"
+        "• 🟡 **Luxury Gold** (Premium & VIP)\n"
+        "• 🔴 **Ruby Crimson** (Bold & High Impact)"
+    )
+    await callback.message.edit_text(
+        text,
+        reply_markup=admin_theme_selector_keyboard(current_theme),
+        parse_mode="Markdown"
+    )
+    await callback.answer()
+
+@admin_router.callback_query(F.data.startswith("admin_set_theme_"))
+async def cb_admin_set_theme(callback: CallbackQuery):
+    if not is_admin(callback.from_user.id):
+        await callback.answer("Access denied.")
+        return
+
+    theme_key = callback.data.split("_")[3] # BLUE, PURPLE, GREEN, GOLD, RED
+    await db.set_theme_color(theme_key)
+    theme = get_theme(theme_key)
+
+    await callback.answer(f"Theme updated to {theme['name']} {theme['icon']}!", show_alert=True)
+
+    text = (
+        f"✅ **Theme Successfully Changed to:** {theme['icon']} `{theme['name']}`\n\n"
+        f"{theme['card_header']}\n\n"
+        "All customer catalog cards, headers, and buttons are now live in this theme!"
+    )
+    await callback.message.edit_text(text, reply_markup=admin_panel_keyboard(), parse_mode="Markdown")
 
 @admin_router.callback_query(F.data == "admin_stats")
 async def cb_admin_stats(callback: CallbackQuery):
@@ -241,7 +294,7 @@ async def cb_update_order_status(callback: CallbackQuery, bot: Bot):
         return
 
     parts = callback.data.split("_")
-    status_type = parts[1] # inprogress, completed, cancelled
+    status_type = parts[1]
     order_id = int(parts[2])
 
     status_map = {
@@ -258,7 +311,6 @@ async def cb_update_order_status(callback: CallbackQuery, bot: Bot):
         f"{callback.message.text}\n\n📌 **Status Updated to:** `{new_status}` by Admin."
     )
 
-    # Notify client directly
     if order:
         client_id = order['user_id']
         client_notice = {

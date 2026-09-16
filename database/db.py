@@ -2,6 +2,57 @@ import aiosqlite
 from datetime import datetime
 from config import DB_PATH, USD_TO_INR_RATE
 
+THEMES = {
+    "BLUE": {
+        "name": "Royal Blue",
+        "icon": "🔵",
+        "bullet": "🔹",
+        "accent": "💎",
+        "card_header": "🔵 **══════ 💎 ROYAL BLUE CATALOG 💎 ══════** 🔵",
+        "border": "🔷",
+        "style_tag": "💙 [BLUE EXCLUSIVE]"
+    },
+    "PURPLE": {
+        "name": "Neon Purple",
+        "icon": "🟣",
+        "bullet": "🔮",
+        "accent": "✨",
+        "card_header": "🟣 **══════ 🔮 NEON PURPLE CATALOG 🔮 ══════** 🟣",
+        "border": "🟪",
+        "style_tag": "💜 [PURPLE EXCLUSIVE]"
+    },
+    "GREEN": {
+        "name": "Emerald Green",
+        "icon": "🟢",
+        "bullet": "🌿",
+        "accent": "🍀",
+        "card_header": "🟢 **══════ 🌿 EMERALD GREEN CATALOG 🌿 ══════** 🟢",
+        "border": "🟩",
+        "style_tag": "💚 [GREEN EXCLUSIVE]"
+    },
+    "GOLD": {
+        "name": "Luxury Gold",
+        "icon": "🟡",
+        "bullet": "👑",
+        "accent": "⭐",
+        "card_header": "🟡 **══════ 👑 LUXURY GOLD CATALOG 👑 ══════** 🟡",
+        "border": "🟨",
+        "style_tag": "💛 [GOLD EXCLUSIVE]"
+    },
+    "RED": {
+        "name": "Ruby Crimson",
+        "icon": "🔴",
+        "bullet": "🔥",
+        "accent": "⚡",
+        "card_header": "🔴 **══════ 🔥 RUBY CRIMSON CATALOG 🔥 ══════** 🔴",
+        "border": "🟥",
+        "style_tag": "❤️ [RED EXCLUSIVE]"
+    }
+}
+
+def get_theme(theme_key: str) -> dict:
+    return THEMES.get((theme_key or "BLUE").upper(), THEMES["BLUE"])
+
 def format_price(amount_inr: float, currency: str = "INR") -> str:
     """Returns a rich formatted price string based on user currency."""
     currency = (currency or "INR").upper()
@@ -26,9 +77,8 @@ class Database:
         self.db_path = db_path
 
     async def init_db(self):
-        """Initialize tables and seed default services if none exist."""
+        """Initialize tables and seed default services & settings if none exist."""
         async with aiosqlite.connect(self.db_path) as db:
-            # Enable foreign keys
             await db.execute("PRAGMA foreign_keys = ON;")
 
             # 1. Users table
@@ -42,13 +92,26 @@ class Database:
                 );
             """)
 
-            # Safe migration for existing users table
             try:
                 await db.execute("ALTER TABLE users ADD COLUMN currency TEXT DEFAULT 'INR';")
             except Exception:
-                pass  # Column already exists
+                pass
 
-            # 2. Services table (price stored in INR)
+            # 2. Settings table (Key-Value)
+            await db.execute("""
+                CREATE TABLE IF NOT EXISTS settings (
+                    key TEXT PRIMARY KEY,
+                    value TEXT NOT NULL
+                );
+            """)
+
+            # Seed default theme to BLUE if not set
+            await db.execute("""
+                INSERT OR IGNORE INTO settings (key, value)
+                VALUES ('theme_color', 'BLUE');
+            """)
+
+            # 3. Services table (price stored in INR)
             await db.execute("""
                 CREATE TABLE IF NOT EXISTS services (
                     id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -61,7 +124,7 @@ class Database:
                 );
             """)
 
-            # 3. Orders table
+            # 4. Orders table
             await db.execute("""
                 CREATE TABLE IF NOT EXISTS orders (
                     id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -78,7 +141,7 @@ class Database:
 
             await db.commit()
 
-            # Seed default services with INR pricing if empty or if previously seeded in old USD amounts (< 200)
+            # Seed default services
             async with db.execute("SELECT COUNT(*) FROM services") as cursor:
                 count = (await cursor.fetchone())[0]
 
@@ -116,9 +179,27 @@ class Database:
                 )
                 await db.commit()
             else:
-                # If existing services were < 200 (old USD values), convert them to proper INR
                 await db.execute("UPDATE services SET price = price * 85 WHERE price < 200")
                 await db.commit()
+
+    # Settings & Theme Methods
+    async def get_theme_color(self) -> str:
+        async with aiosqlite.connect(self.db_path) as db:
+            async with db.execute("SELECT value FROM settings WHERE key = 'theme_color'") as cursor:
+                row = await cursor.fetchone()
+                return row[0] if row else "BLUE"
+
+    async def set_theme_color(self, theme_key: str):
+        theme_key = theme_key.upper()
+        if theme_key not in THEMES:
+            theme_key = "BLUE"
+        async with aiosqlite.connect(self.db_path) as db:
+            await db.execute("""
+                INSERT INTO settings (key, value)
+                VALUES ('theme_color', ?)
+                ON CONFLICT(key) DO UPDATE SET value = excluded.value
+            """, (theme_key,))
+            await db.commit()
 
     # User Methods
     async def add_or_update_user(self, user_id: int, username: str | None, full_name: str, detected_currency: str = "INR"):
