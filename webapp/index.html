@@ -1,0 +1,87 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <title>Services Store</title>
+  <!-- Telegram WebApp SDK -->
+  <script src="https://telegram.org/js/telegram-web-app.js"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/webapp/style.css" />
+</head>
+<body>
+  <div class="app-container">
+    <!-- Header -->
+    <header class="app-header">
+      <div class="header-content">
+        <div class="store-badge">
+          <span class="store-icon">⚡</span>
+          <div class="store-info">
+            <h1 id="storeTitle">SERVICES STORE</h1>
+            <p id="storeSubtitle">Tap any service to order</p>
+          </div>
+        </div>
+        <button id="currencyToggleBtn" class="currency-btn" title="Toggle Currency">
+          <span id="currencyFlag">🇮🇳</span> <span id="currencyText">INR (₹)</span>
+        </button>
+      </div>
+      
+      <!-- Search Input -->
+      <div class="search-bar">
+        <span class="search-icon">🔍</span>
+        <input type="text" id="searchInput" placeholder="Search services..." />
+      </div>
+    </header>
+
+    <!-- Services Button List (Matches user screenshot) -->
+    <main class="services-list-container">
+      <div id="servicesList" class="services-list">
+        <div class="loading-state">
+          <div class="spinner"></div>
+          <p>Loading available services...</p>
+        </div>
+      </div>
+    </main>
+
+    <!-- Service Detail & Order Modal -->
+    <div id="serviceModal" class="modal-overlay hidden">
+      <div class="modal-content">
+        <button id="modalCloseBtn" class="modal-close">&times;</button>
+        
+        <div class="modal-header">
+          <span id="modalIcon" class="modal-icon">🚀</span>
+          <h2 id="modalTitle">Service Name</h2>
+          <div class="price-duration-badge">
+            <span id="modalPrice" class="modal-price">₹2,999</span>
+            <span id="modalDuration" class="modal-duration">⏱️ 2-3 Days</span>
+          </div>
+        </div>
+
+        <div class="modal-body">
+          <div class="info-section">
+            <h3>Description</h3>
+            <p id="modalDesc">Full description goes here...</p>
+          </div>
+
+          <div class="input-section">
+            <label for="orderRequirements">Project Requirements / Brief:</label>
+            <textarea id="orderRequirements" rows="3" placeholder="Describe your project, custom needs, links, or instructions..."></textarea>
+          </div>
+
+          <div id="orderStatusMsg" class="status-msg hidden"></div>
+        </div>
+
+        <div class="modal-footer">
+          <button id="submitOrderBtn" class="order-btn">
+            ⚡ Submit Order Now
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script src="/webapp/app.js"></script>
+</body>
+</html>

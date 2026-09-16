@@ -1,9 +1,19 @@
-from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
+from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton, WebAppInfo
 from database.db import get_price_display, THEMES
+from config import WEBAPP_URL
 
 def services_menu_keyboard(services: list[dict], currency: str = "INR", theme: dict | None = None) -> InlineKeyboardMarkup:
     bullet = theme.get("bullet", "🔹") if theme else "🔹"
     buttons = []
+    
+    # Prominent Mini App button at the top
+    buttons.append([
+        InlineKeyboardButton(
+            text="📱 Open Full-Screen Store (Mini App) 🚀",
+            web_app=WebAppInfo(url=WEBAPP_URL)
+        )
+    ])
+
     for s in services:
         price_str = get_price_display(s['price'], currency)
         buttons.append([
@@ -29,6 +39,12 @@ def service_detail_keyboard(service_id: int) -> InlineKeyboardMarkup:
                 InlineKeyboardButton(
                     text="🛒 Order This Service",
                     callback_data=f"order_service_{service_id}"
+                )
+            ],
+            [
+                InlineKeyboardButton(
+                    text="📱 Open Mini App Store",
+                    web_app=WebAppInfo(url=WEBAPP_URL)
                 )
             ],
             [
@@ -104,6 +120,9 @@ def admin_panel_keyboard() -> InlineKeyboardMarkup:
             ],
             [
                 InlineKeyboardButton(text="🎨 Change Theme Color", callback_data="admin_theme_menu")
+            ],
+            [
+                InlineKeyboardButton(text="📱 Preview Mini App", web_app=WebAppInfo(url=WEBAPP_URL))
             ],
             [
                 InlineKeyboardButton(text="📢 Broadcast Announcement", callback_data="admin_broadcast")
